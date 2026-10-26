@@ -1,0 +1,48 @@
+VASTOCHNIY AE COPILOT — EXECUTION MVP (macOS)
+
+WHAT THIS BUILD DOES
+- Browser UI sends commands to a local bridge.
+- The After Effects CEP panel receives them and calls After Effects' scripting engine.
+- Implemented actions: create animated text, create rounded rectangle shape, create a liquid-glass starter shape, rename selected layers.
+- This is a proof-of-execution MVP, not the complete AI feature set yet. No AI API key is used.
+
+IMPORTANT COMPATIBILITY NOTE
+This prototype uses Adobe's CEP panel + ExtendScript bridge. CEP availability and unsigned-extension loading depend on your installed After Effects/macOS configuration. If After Effects 2026 no longer loads CEP on your setup, we must port the panel to supported UXP APIs rather than claim this install path works.
+
+INSTALL
+1. Quit After Effects.
+2. Copy the folder `cep` contents into this folder (create it if needed):
+   ~/Library/Application Support/Adobe/CEP/extensions/com.vastochniy.aecopilot/
+   The final path should contain CSXS/manifest.xml, index.html, panel.js, and jsx/host.jsx.
+   Easiest: rename the extracted `cep` folder to `com.vastochniy.aecopilot` and copy it into the extensions folder.
+3. Enable unsigned CEP extensions for the CEP runtime used by your installation. In Terminal, you can try:
+   defaults write com.adobe.CSXS.11 PlayerDebugMode 1
+   defaults write com.adobe.CSXS.12 PlayerDebugMode 1
+   Then restart After Effects. This setting is a developer-mode workaround; it may not be sufficient on every version.
+4. Start the local bridge in Terminal. From the extracted package folder, run:
+   python3 server/server.py
+   Keep Terminal open. The browser should open at http://127.0.0.1:8766.
+5. In After Effects, look under Window > Extensions (Legacy) for `VASTOCHNIY AE Copilot`.
+6. Keep the panel open. The browser should show “After Effects panel connected.”
+7. In After Effects, create or open a project and composition. From the browser, choose “Create animated text layer” and send `VASTOCHNIY`.
+8. Confirm a new layer appears in the active composition and inspect its Scale/Opacity keyframes. Test on a copy of a project first.
+
+TROUBLESHOOTING
+- If `Window > Extensions (Legacy)` does not show the panel, check the install path and CEP support. Do not assume the extension is running just because the browser opens.
+- If browser status says waiting for the panel, the local bridge is running but AE has not connected. Keep the AE panel open and click Check connection in the panel.
+- If macOS blocks a command file, run the Python command above from Terminal instead.
+- If AE reports an ERROR, copy the exact error text. The browser log displays execution results.
+- Stop the bridge with Ctrl+C in Terminal.
+
+SAFETY
+The panel only binds to 127.0.0.1 and has no external API calls. Commands modify the active composition; use a duplicate project for initial testing. Each action is grouped for Undo where supported.
+
+NOT YET IMPLEMENTED
+- AI natural-language planning / OpenAI integration
+- Reference video reconstruction
+- Uzbek spellcheck
+- Background removal
+- Pinterest/Instagram/YouTube downloader
+- Automatic creation of an actual project folder named b-rolls
+- Advanced liquid-glass refraction or third-party plugin recreation
+These are follow-on features after live execution is confirmed.
