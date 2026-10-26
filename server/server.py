@@ -6,7 +6,7 @@ from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import urlparse
 from collections import deque
-import json, threading, webbrowser, time, uuid
+import json, threading, webbrowser, time, uuid, sys
 
 HOST, PORT = "127.0.0.1", 8766
 _lock = threading.RLock()
@@ -67,7 +67,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(raw)))
         self.send_header("Cache-Control", "no-store")
-        self.send_header("Access-Control-Allow-Origin", "http://127.0.0.1:8766")
+        self.send_header("Access-Control-Allow-Origin", "*")\n        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")\n        self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
         self.wfile.write(raw)
     def do_GET(self):
@@ -100,7 +100,7 @@ class Handler(BaseHTTPRequestHandler):
                     if item and item["status"] == "queued":
                         item["status"] = "executing"; item["started_at"] = time.time()
                         _inflight_id = cid
-                        self.send_json({"command":{"id":item["id"],"action":item["action"],"text":item["text"],"duration":item["duration"]}}); return
+                        self.send_json({"command":{"id":item["id"],"action":item["action"],"text":item["text"],"prefix":item["prefix"],"duration":item["duration"]}}); return
             self.send_json({"command":None,"busy":False}); return
         self.send_json({"error":"not found"},404)
     def do_POST(self):
@@ -120,7 +120,7 @@ class Handler(BaseHTTPRequestHandler):
             text = str(data.get("text","VASTOCHNIY"))[:180]
             try: duration = max(.2,min(5,float(data.get("duration",.8))))
             except (TypeError,ValueError): duration = .8
-            item={"id":uuid.uuid4().hex,"action":action,"text":text,"duration":duration,"status":"queued","created_at":time.time()}
+            item={"id":uuid.uuid4().hex,"action":action,"text":text,"prefix":prefix,"duration":duration,"status":"queued","created_at":time.time()}
             with _lock:
                 _commands[item["id"]]=item; _queue.append(item["id"])
             self.send_json({"ok":True,"id":item["id"],"status":"queued","message":"Command queued."},202); return
@@ -148,7 +148,7 @@ def main():
     server = ThreadingHTTPServer((HOST,PORT),Handler)
     print(f"VASTOCHNIY AE Copilot bridge running at http://{HOST}:{PORT}",flush=True)
     print("Keep this Terminal window open. Press Ctrl+C to stop.",flush=True)
-    threading.Timer(1.0,lambda:webbrowser.open(f"http://{HOST}:{PORT}")).start()
+    if "--open-browser" in sys.argv:\n        threading.Timer(1.0,lambda:webbrowser.open(f"http://{HOST}:{PORT}")).start()
     try: server.serve_forever()
     except KeyboardInterrupt: print("\nStopping bridge…")
     finally: server.server_close()
