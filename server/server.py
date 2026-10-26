@@ -158,7 +158,8 @@ def main():
     server = ThreadingHTTPServer((HOST,PORT),Handler)
     print(f"VASTOCHNIY AE Copilot bridge running at http://{HOST}:{PORT}",flush=True)
     print("Keep this Terminal window open. Press Ctrl+C to stop.",flush=True)
-    if "--open-browser" in sys.argv:\n        threading.Timer(1.0,lambda:webbrowser.open(f"http://{HOST}:{PORT}")).start()
+    if "--open-browser" in sys.argv:
+        threading.Timer(1.0,lambda:webbrowser.open(f"http://{HOST}:{PORT}")).start()
     try: server.serve_forever()
     except KeyboardInterrupt: print("\nStopping bridge…")
     finally: server.server_close()
