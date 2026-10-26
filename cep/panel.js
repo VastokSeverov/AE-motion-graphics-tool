@@ -1,13 +1,23 @@
-/* CEP panel: serially polls the bridge and waits for AE's callback before polling again. */
+/* VASTOCHNIY AE Copilot CEP panel: UI, polling, and serialized command execution. */
 (function () {
   var base = 'http://127.0.0.1:8766';
   var running = false;
-  var stopped = false;
-  var state = document.getElementById('state');
+  var busyCommand = false;
+  var statusEl = document.getElementById('status');
+  var connectionEl = document.getElementById('connection');
+  var logEl = document.getElementById('log');
+  var actionButtons = document.querySelectorAll('[data-action]');
 
   function show(message, good) {
-    state.textContent = message;
-    state.className = good ? 'good' : 'bad';
+    statusEl.textContent = message;
+    statusEl.className = good ? 'good' : 'bad';
+  }
+  function setConnection(message, good) {
+    connectionEl.textContent = message;
+    connectionEl.className = good ? 'good' : 'bad';
+  }
+  function setButtonsDisabled(disabled) {
+    Array.prototype.forEach.call(actionButtons, function (button) { button.disabled = disabled; });
   }
   function postResult(id, message) {
     var status = /^ERROR|^Error/.test(message) ? 'failed' : 'succeeded';
@@ -32,8 +42,7 @@
       var watchdog = setTimeout(function () {
         if (completed) return;
         completed = true;
-        // Do not report a definitive failure after a local timeout: AE may still finish.
-        show('Timed out waiting for After Effects callback. Check the composition before retrying.', false);
+        show('Timed out waiting for After Effects. Check the composition before retrying.', false);
         resolve();
       }, 50000);
       try {
@@ -63,27 +72,89 @@
     });
   }
 
+  function updateLog(results) {
+    if (!results || !results.length) return;
+    logEl.textContent = results.slice(-8).reverse().map(function (item) {
+      return new Date(item.time * 1000).toLocaleTimeString() + ' — [' + item.status + '] ' + item.message;
+    }).join('\n');
+  }
+
+  async function refreshStatus() {
+    try {
+      var response = await fetch(base + '/api/status', { cache: 'no-store' });
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      var data = await response.json();
+      if (data.panelConnected) setConnection('Connected', true);
+      else setConnection('Bridge ready · waiting', false);
+      updateLog(data.results);
+    } catch (e) {
+      setConnection('Offline', false);
+      if (!busyCommand) show('Cannot reach local bridge. Start server/server.py. ' + e.message, false);
+    }
+  }
+
   async function poll() {
-    if (running || stopped) return;
+    if (running) return;
     running = true;
     try {
       var response = await fetch(base + '/api/next', { cache: 'no-store' });
       if (!response.ok) throw new Error('Bridge returned HTTP ' + response.status);
       var data = await response.json();
       if (data.command) {
-        show('Executing ' + data.command.action + '…', true);
+        busyCommand = true;
+        setButtonsDisabled(true);
+        show('Executing ' + data.command.action.replace(/_/g, ' ') + '…', true);
         await execute(data.command);
-      } else {
-        show('Connected to local bridge. ' + (data.busy ? 'Another command is executing.' : 'Waiting for commands.'), true);
+        busyCommand = false;
+        setButtonsDisabled(false);
+        await refreshStatus();
+      } else if (!busyCommand) {
+        show('Connected. Ready for an action.', true);
       }
     } catch (e) {
-      show('Bridge offline or unreachable. Start server/server.py. ' + e.message, false);
+      setConnection('Offline', false);
+      if (!busyCommand) show('Bridge offline or unreachable. Start server/server.py. ' + e.message, false);
     } finally {
       running = false;
     }
   }
-  window.checkNow = function () { poll(); };
-  window.stopCopilotPolling = function () { stopped = true; };
-  setInterval(poll, 1000);
+
+  function queueAction(action) {
+    if (busyCommand) return;
+    var payload = {
+      action: action,
+      text: document.getElementById('text').value,
+      prefix: document.getElementById('prefix').value,
+      duration: Number(document.getElementById('duration').value)
+    };
+    busyCommand = true;
+    setButtonsDisabled(true);
+    show('Sending ' + action.replace(/_/g, ' ') + ' to After Effects…', true);
+    fetch(base + '/api/command', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function (response) {
+      return response.json().then(function (data) {
+        if (!response.ok) throw new Error(data.error || 'Command rejected');
+        show('Command queued. Waiting for After Effects…', true);
+      });
+    }).catch(function (e) {
+      busyCommand = false;
+      setButtonsDisabled(false);
+      show('Could not queue command: ' + e.message, false);
+    });
+  }
+
+  Array.prototype.forEach.call(actionButtons, function (button) {
+    button.addEventListener('click', function () { queueAction(button.getAttribute('data-action')); });
+  });
+
+  // The panel is the command client; the browser UI is no longer required.
+  setInterval(function () {
+    if (!busyCommand) refreshStatus();
+    poll();
+  }, 1000);
+  refreshStatus();
   poll();
 })();
