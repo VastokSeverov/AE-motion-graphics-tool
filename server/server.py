@@ -67,7 +67,9 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(raw)))
         self.send_header("Cache-Control", "no-store")
-        self.send_header("Access-Control-Allow-Origin", "*")\n        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")\n        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
         self.wfile.write(raw)
     def do_OPTIONS(self):
@@ -125,6 +127,7 @@ class Handler(BaseHTTPRequestHandler):
             if action not in ALLOWED_ACTIONS:
                 self.send_json({"error":"Unsupported action"},400); return
             text = str(data.get("text","VASTOCHNIY"))[:180]
+            prefix = str(data.get("prefix","AI — "))[:40]
             try: duration = max(.2,min(5,float(data.get("duration",.8))))
             except (TypeError,ValueError): duration = .8
             item={"id":uuid.uuid4().hex,"action":action,"text":text,"prefix":prefix,"duration":duration,"status":"queued","created_at":time.time()}
