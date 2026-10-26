@@ -6,6 +6,7 @@ import threading
 import urllib.error
 import urllib.request
 import unittest
+from unittest.mock import patch
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("vasto_server", ROOT / "server" / "server.py")
@@ -49,12 +50,19 @@ class BridgeTests(unittest.TestCase):
 
 
     def test_natural_language_plan_requires_supported_intent(self):
-        status, data = self.request("/api/plan", {"prompt": 'Create animated text saying "Hello" in 1.2 seconds'})
+        valid_plan = {
+            "action": "animated_text", "text": "Hello", "prefix": "AI — ",
+            "duration": 1.2, "explanation": "Create the existing animated text layer.",
+            "requires_confirmation": True, "planner": "ollama", "model": "qwen3:14b"
+        }
+        with patch.object(bridge, "plan_request", return_value=valid_plan):
+            status, data = self.request("/api/plan", {"prompt": 'Create animated text saying "Hello" in 1.2 seconds'})
         self.assertEqual(status, 200)
         self.assertEqual(data["plan"]["action"], "animated_text")
         self.assertEqual(data["plan"]["text"], "Hello")
         self.assertTrue(data["plan"]["requires_confirmation"])
-        status, rejected = self.request("/api/plan", {"prompt": "Run arbitrary code"})
+        with patch.object(bridge, "plan_request", side_effect=bridge.PlanningError("unsupported")):
+            status, rejected = self.request("/api/plan", {"prompt": "Run arbitrary code"})
         self.assertEqual(status, 400)
         self.assertIn("error", rejected)
 
