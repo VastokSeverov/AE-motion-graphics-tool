@@ -44,6 +44,7 @@
           '\nText: ' + plannedRequest.text +
           '\nPrefix: ' + plannedRequest.prefix +
           '\nDuration: ' + plannedRequest.duration + 's' +
+          '\nText color: ' + plannedRequest.color +
           '\n\n' + plannedRequest.explanation +
           '\n\nNothing has changed yet. Click “Review & Run” to execute this plan.';
         runPlanButton.disabled = false;
@@ -65,6 +66,7 @@
     document.getElementById('text').value = plan.text;
     document.getElementById('prefix').value = plan.prefix;
     document.getElementById('duration').value = plan.duration;
+    document.getElementById('color').value = plan.color || 'white';
     planPreview.textContent += '\n\nExecuting reviewed plan…';
     queueAction(plan.action);
   });
@@ -177,7 +179,8 @@
       action: action,
       text: document.getElementById('text').value,
       prefix: document.getElementById('prefix').value,
-      duration: Number(document.getElementById('duration').value)
+      duration: Number(document.getElementById('duration').value),
+      color: document.getElementById('color').value
     };
     busyCommand = true;
     setButtonsDisabled(true);

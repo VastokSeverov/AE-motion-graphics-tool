@@ -111,7 +111,7 @@ class Handler(BaseHTTPRequestHandler):
                     if item and item["status"] == "queued":
                         item["status"] = "executing"; item["started_at"] = time.time()
                         _inflight_id = cid
-                        self.send_json({"command":{"id":item["id"],"action":item["action"],"text":item["text"],"prefix":item["prefix"],"duration":item["duration"]}}); return
+                        self.send_json({"command":{"id":item["id"],"action":item["action"],"text":item["text"],"prefix":item["prefix"],"duration":item["duration"],"color":item["color"]}}); return
             self.send_json({"command":None,"busy":False}); return
         self.send_json({"error":"not found"},404)
     def do_POST(self):
@@ -138,7 +138,11 @@ class Handler(BaseHTTPRequestHandler):
             prefix = str(data.get("prefix","AI — "))[:40]
             try: duration = max(.2,min(5,float(data.get("duration",.8))))
             except (TypeError,ValueError): duration = .8
-            item={"id":uuid.uuid4().hex,"action":action,"text":text,"prefix":prefix,"duration":duration,"status":"queued","created_at":time.time()}
+            allowed_colors = {"white", "red", "green", "blue", "yellow", "orange", "purple", "pink", "black", "cyan"}
+            color = str(data.get("color", "white")).strip().lower()
+            if color not in allowed_colors:
+                self.send_json({"error":"Unsupported text color"},400); return
+            item={"id":uuid.uuid4().hex,"action":action,"text":text,"prefix":prefix,"duration":duration,"color":color,"status":"queued","created_at":time.time()}
             with _lock:
                 _commands[item["id"]]=item; _queue.append(item["id"])
             self.send_json({"ok":True,"id":item["id"],"status":"queued","message":"Command queued."},202); return
