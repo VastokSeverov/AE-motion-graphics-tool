@@ -17,7 +17,59 @@
     connectionEl.className = good ? 'good' : 'bad';
   }
   function setButtonsDisabled(disabled) {
-    Array.prototype.forEach.call(actionButtons, function (button) { button.disabled = disabled; });
+  
+  var plannedRequest = null;
+  var planButton = document.getElementById('planRequest');
+  var runPlanButton = document.getElementById('runPlan');
+  var planPreview = document.getElementById('planPreview');
+
+  planButton.addEventListener('click', function () {
+    var prompt = document.getElementById('prompt').value;
+    if (busyCommand) return;
+    planButton.disabled = true;
+    runPlanButton.disabled = true;
+    plannedRequest = null;
+    planPreview.hidden = false;
+    planPreview.textContent = 'Planning request…';
+    fetch(base + '/api/plan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: prompt })
+    }).then(function (response) {
+      return response.json().then(function (data) {
+        if (!response.ok) throw new Error(data.error || 'Could not plan request');
+        plannedRequest = data.plan;
+        var actionName = plannedRequest.action.replace(/_/g, ' ');
+        planPreview.textContent = 'PROPOSED ACTION: ' + actionName +
+          '\\nText: ' + plannedRequest.text +
+          '\\nPrefix: ' + plannedRequest.prefix +
+          '\\nDuration: ' + plannedRequest.duration + 's' +
+          '\\n\\n' + plannedRequest.explanation +
+          '\\n\\nNothing has changed yet. Click “Review & Run” to execute this plan.';
+        runPlanButton.disabled = false;
+        show('Plan ready. Review it before execution.', true);
+      });
+    }).catch(function (error) {
+      planPreview.textContent = error.message;
+      show('Planning failed: ' + error.message, false);
+    }).finally(function () {
+      planButton.disabled = false;
+    });
+  });
+
+  runPlanButton.addEventListener('click', function () {
+    if (!plannedRequest || busyCommand) return;
+    var plan = plannedRequest;
+    plannedRequest = null;
+    runPlanButton.disabled = true;
+    document.getElementById('text').value = plan.text;
+    document.getElementById('prefix').value = plan.prefix;
+    document.getElementById('duration').value = plan.duration;
+    planPreview.textContent += '\\n\\nExecuting reviewed plan…';
+    queueAction(plan.action);
+  });
+
+  Array.prototype.forEach.call(actionButtons, function (button) { button.disabled = disabled; });
   }
   function postResult(id, message) {
     var status = /^ERROR|^Error/.test(message) ? 'failed' : 'succeeded';
