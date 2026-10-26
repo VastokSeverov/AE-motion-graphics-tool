@@ -27,16 +27,16 @@ def plan_request(prompt):
     if duration_match:
         params["duration"] = max(0.2, min(5.0, float(duration_match.group(1))))
 
-    quoted = re.search(r"[\\"'“”‘’](.+?)[\\"'“”‘’]", source)
+    quoted = re.search(r"""["'“”‘’](.+?)["'“”‘’]""", source)
     text_match = re.search(r"\b(?:saying|text(?: that says)?|with the text)\s*[:=]?\s*(.+?)(?:\s+in\s+\d+(?:\.\d+)?\s*(?:s|sec|secs|seconds?)\b|$)", source, re.I)
     if quoted:
         params["text"] = quoted.group(1).strip()[:180]
     elif text_match:
         params["text"] = text_match.group(1).strip(" .,!")[:180]
 
-    prefix_match = re.search(r"\bprefix\b.*?\bwith\s+[\\"'“”‘’]?(.+?)[\\"'“”‘’]?$", source, re.I)
+    prefix_match = re.search(r"""\bprefix\b.*?\bwith\s+["'“”‘’]?(.+?)["'“”‘’]?$""", source, re.I)
     if prefix_match:
-        params["prefix"] = prefix_match.group(1).strip(" .,!\\"'“”‘’")[:40] or DEFAULTS["prefix"]
+        params["prefix"] = prefix_match.group(1).strip(" .,!" + chr(34) + "'“”‘’")[:40] or DEFAULTS["prefix"]
 
     if any(word in normalized for word in ("rename", "prefix", "organize layer", "organise layer")):
         action = "organize"
