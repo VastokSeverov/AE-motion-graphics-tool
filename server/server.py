@@ -7,6 +7,8 @@ from pathlib import Path
 from urllib.parse import urlparse
 from collections import deque
 import json, threading, webbrowser, time, uuid, sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from planner import plan_request, PlanningError
 
 HOST, PORT = "127.0.0.1", 8766
 _lock = threading.RLock()
@@ -122,6 +124,12 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(data, dict): raise ValueError("JSON object required")
         except Exception:
             self.send_json({"error":"invalid JSON or request size"},400); return
+        if path == "/api/plan":
+            try:
+                plan = plan_request(data.get("prompt", ""))
+            except PlanningError as exc:
+                self.send_json({"error": str(exc)}, 400); return
+            self.send_json({"ok": True, "plan": plan}); return
         if path == "/api/command":
             action = data.get("action")
             if action not in ALLOWED_ACTIONS:
