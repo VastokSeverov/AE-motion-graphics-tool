@@ -1,4 +1,4 @@
-"""Integration tests for the loopback bridge; no After Effects installation required."""
+""""Integration tests for the loopback bridge; no After Effects installation required."""
 import importlib.util
 import json
 import pathlib
@@ -42,7 +42,10 @@ class BridgeTests(unittest.TestCase):
             with urllib.request.urlopen(req, timeout=3) as res:
                 return res.status, json.loads(res.read().decode())
         except urllib.error.HTTPError as err:
-            return err.code, json.loads(err.read().decode())
+            try:
+                return err.code, json.loads(err.read().decode())
+            finally:
+                err.close()
 
     def test_rejects_unknown_action(self):
         status, data = self.request("/api/command", {"action": "arbitrary_script"})
