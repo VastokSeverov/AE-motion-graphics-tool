@@ -1,6 +1,6 @@
 # VASTOCHNIY AE Copilot — Execution MVP
 
-A local browser interface and Adobe After Effects CEP panel that executes a small, explicit set of operations in the active composition.
+An Adobe After Effects CEP panel with in-panel controls for a small, explicit set of operations in the active composition. The local browser interface remains optional for diagnostics.
 
 ## Implemented in source
 - Animated text layer with scale/opacity keyframes
@@ -14,7 +14,7 @@ A local browser interface and Adobe After Effects CEP panel that executes a smal
 Source code and automated bridge tests do **not** prove that the extension loads or works inside a user's After Effects installation. Live tests are still required on the target macOS/After Effects version. Do not treat a running browser page as proof that AE is connected; the CEP panel must poll the bridge, and an actual command must return a result.
 
 ## Architecture
-Browser UI → loopback Python HTTP bridge at `127.0.0.1:8766` → CEP panel → ExtendScript host script → execution result back to browser.
+AE CEP panel UI → loopback Python HTTP bridge at `127.0.0.1:8766` → CEP panel → ExtendScript host script → execution result back to the panel. The browser dashboard is optional and can be opened manually at `http://127.0.0.1:8766`.
 
 ## Test the bridge
 From the repository root:

@@ -40,8 +40,9 @@ Vasto.executeCommand = function(raw) {
             message='SUCCESS: Created a liquid-glass starter shape. This is a base treatment, not physically accurate glass refraction.';
         } else if (cmd.action === 'organize') {
             var selected=comp.selectedLayers; if (!selected || selected.length===0) throw new Error('Select one or more layers first.');
-            for(var i=0;i<selected.length;i++){if(selected[i].name.indexOf('AI — ')!==0)selected[i].name='AI — '+selected[i].name;}
-            message='SUCCESS: Renamed '+selected.length+' selected layer(s).';
+            var prefix = String(cmd.prefix || 'AI — ');
+            for(var i=0;i<selected.length;i++){if(selected[i].name.indexOf(prefix)!==0)selected[i].name=prefix+selected[i].name;}
+            message='SUCCESS: Renamed '+selected.length+' selected layer(s) with prefix “'+prefix+'”.';
         } else { throw new Error('Unsupported action: '+cmd.action); }
         app.endUndoGroup(); return JSON.stringify({message:message});
     } catch (e2) { try{app.endUndoGroup();}catch(ignore3){} return JSON.stringify({message:'ERROR: '+e2.toString()}); }
