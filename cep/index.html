@@ -22,12 +22,20 @@ input{width:100%;border:1px solid #3b3c44;background:#101115;color:#f2f2f4;paddi
 #status{padding:10px;border-radius:8px;background:#24252b;border:1px solid #363740;min-height:42px;white-space:pre-wrap;overflow-wrap:anywhere}
 #status.good{color:#a9e8b8}#status.bad{color:#ffd18a}
 #log{font-size:10px;color:#aeb0ba;white-space:pre-wrap;max-height:92px;overflow:auto}
-.note{color:#888a95;font-size:10px;margin:10px 0 0}\ntextarea{width:100%;min-height:78px;resize:vertical;border:1px solid #3b3c44;background:#101115;color:#f2f2f4;padding:9px;border-radius:7px;font:12px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}\n.plan-card{padding:10px;border:1px solid #46413a;border-radius:8px;background:#24231f;margin-top:8px;white-space:pre-wrap;overflow-wrap:anywhere}\n.plan-actions{display:flex;gap:8px;margin-top:8px}.plan-button{flex:1;border:1px solid #4a4b53;border-radius:7px;background:#e9b75c;color:#18191d;padding:9px;font-weight:700;cursor:pointer}.plan-button.secondary{background:#2a2b31;color:#eee}.plan-button:disabled{opacity:.45}
+.note{color:#888a95;font-size:10px;margin:10px 0 0}
+textarea{width:100%;min-height:78px;resize:vertical;border:1px solid #3b3c44;background:#101115;color:#f2f2f4;padding:9px;border-radius:7px;font:12px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.plan-card{padding:10px;border:1px solid #46413a;border-radius:8px;background:#24231f;margin-top:8px;white-space:pre-wrap;overflow-wrap:anywhere}
+.plan-actions{display:flex;gap:8px;margin-top:8px}.plan-button{flex:1;border:1px solid #4a4b53;border-radius:7px;background:#e9b75c;color:#18191d;padding:9px;font-weight:700;cursor:pointer}.plan-button.secondary{background:#2a2b31;color:#eee}.plan-button:disabled{opacity:.45}
 </style>
 </head>
 <body>
 <header><div class="mark">V</div><div><div class="brand">VASTOCHNIY</div><div class="sub">AE COPILOT · EXECUTION</div></div><div id="connection">Connecting…</div></header>
-<h2>Describe what you want</h2>\n<textarea id="prompt" maxlength="1000" placeholder="Example: Create animated text saying \"Hello World\" in 1.2 seconds"></textarea>\n<div class="plan-actions"><button id="planRequest" class="plan-button">Plan request</button><button id="runPlan" class="plan-button secondary" disabled>Review &amp; Run</button></div>\n<div id="planPreview" class="plan-card" hidden>No plan yet.</div>\n<p class="note">The planner only maps requests to supported actions. Review the plan before it changes your composition.</p>\n<h2>Quick actions</h2>
+<h2>Describe what you want</h2>
+<textarea id="prompt" maxlength="1000" placeholder="Example: Create animated text saying Hello World in 1.2 seconds"></textarea>
+<div class="plan-actions"><button id="planRequest" class="plan-button">Plan request</button><button id="runPlan" class="plan-button secondary" disabled>Review &amp; Run</button></div>
+<div id="planPreview" class="plan-card" hidden>No plan yet.</div>
+<p class="note">The planner only maps requests to supported actions. Review the plan before it changes your composition.</p>
+<h2>Quick actions</h2>
 <div class="grid">
 <button class="action" data-action="animated_text"><span class="glyph">T</span><strong>Animated Text</strong><small>Text + keyframes</small></button>
 <button class="action" data-action="shape"><span class="glyph">▢</span><strong>Rounded Rectangle</strong><small>Create a shape layer</small></button>
