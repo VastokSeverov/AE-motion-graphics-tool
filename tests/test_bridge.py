@@ -47,6 +47,17 @@ class BridgeTests(unittest.TestCase):
             finally:
                 err.close()
 
+
+    def test_natural_language_plan_requires_supported_intent(self):
+        status, data = self.request("/api/plan", {"prompt": 'Create animated text saying "Hello" in 1.2 seconds'})
+        self.assertEqual(status, 200)
+        self.assertEqual(data["plan"]["action"], "animated_text")
+        self.assertEqual(data["plan"]["text"], "Hello")
+        self.assertTrue(data["plan"]["requires_confirmation"])
+        status, rejected = self.request("/api/plan", {"prompt": "Run arbitrary code"})
+        self.assertEqual(status, 400)
+        self.assertIn("error", rejected)
+
     def test_rejects_unknown_action(self):
         status, data = self.request("/api/command", {"action": "arbitrary_script"})
         self.assertEqual(status, 400)
