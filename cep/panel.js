@@ -41,11 +41,11 @@
         plannedRequest = data.plan;
         var actionName = plannedRequest.action.replace(/_/g, ' ');
         planPreview.textContent = 'PROPOSED ACTION: ' + actionName +
-          '\\nText: ' + plannedRequest.text +
-          '\\nPrefix: ' + plannedRequest.prefix +
-          '\\nDuration: ' + plannedRequest.duration + 's' +
-          '\\n\\n' + plannedRequest.explanation +
-          '\\n\\nNothing has changed yet. Click “Review & Run” to execute this plan.';
+          '\nText: ' + plannedRequest.text +
+          '\nPrefix: ' + plannedRequest.prefix +
+          '\nDuration: ' + plannedRequest.duration + 's' +
+          '\n\n' + plannedRequest.explanation +
+          '\n\nNothing has changed yet. Click “Review & Run” to execute this plan.';
         runPlanButton.disabled = false;
         show('Plan ready. Review it before execution.', true);
       });
@@ -65,7 +65,7 @@
     document.getElementById('text').value = plan.text;
     document.getElementById('prefix').value = plan.prefix;
     document.getElementById('duration').value = plan.duration;
-    planPreview.textContent += '\\n\\nExecuting reviewed plan…';
+    planPreview.textContent += '\n\nExecuting reviewed plan…';
     queueAction(plan.action);
   });
 
