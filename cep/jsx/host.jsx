@@ -15,13 +15,30 @@ Vasto.executeCommand = function(raw) {
             layer = comp.layers.addText(String(cmd.text || 'VASTOCHNIY'));
             layer.name = 'AI — ' + String(cmd.text || 'VASTOCHNIY').substring(0,80);
             var textProp = layer.property('ADBE Text Properties').property('ADBE Text Document');
-            var doc = textProp.value; doc.fontSize = Math.min(140, Math.max(48, 1080 / Math.max(5, String(cmd.text || '').length) * 0.65)); doc.applyFill = true; doc.fillColor = [1,1,1]; doc.justification = ParagraphJustification.CENTER_JUSTIFY; textProp.setValue(doc);
+            var doc = textProp.value;
+            doc.fontSize = Math.min(140, Math.max(48, 1080 / Math.max(5, String(cmd.text || '').length) * 0.65));
+            var textColors = {
+                white: [1,1,1], red: [1,0,0], green: [0,0.75,0.15],
+                blue: [0.1,0.35,1], yellow: [1,0.85,0], orange: [1,0.35,0],
+                purple: [0.55,0.2,0.9], pink: [1,0.25,0.55], black: [0,0,0], cyan: [0,1,1]
+            };
+            var requestedColor = String(cmd.color || 'white').toLowerCase();
+            doc.applyFill = true;
+            doc.fillColor = textColors[requestedColor] || textColors.white;
+            doc.justification = ParagraphJustification.CENTER_JUSTIFY;
+            textProp.setValue(doc);
             layer.property('ADBE Transform Group').property('ADBE Position').setValue([comp.width/2, comp.height/2]);
             var scale = layer.property('ADBE Transform Group').property('ADBE Scale');
             var dur = Math.max(0.2, Math.min(5, Number(cmd.duration) || 0.8));
             scale.setValueAtTime(0,[0,0]); scale.setValueAtTime(dur*0.72,[112,112]); scale.setValueAtTime(dur,[100,100]);
             try { scale.setInterpolationTypeAtKey(1,KeyframeInterpolationType.BEZIER,KeyframeInterpolationType.BEZIER); scale.setInterpolationTypeAtKey(2,KeyframeInterpolationType.BEZIER,KeyframeInterpolationType.BEZIER); scale.setInterpolationTypeAtKey(3,KeyframeInterpolationType.BEZIER,KeyframeInterpolationType.BEZIER); } catch(ignore) {}
-            layer.property('ADBE Transform Group').property('ADBE Opacity').setValueAtTime(0,0); layer.property('ADBE Transform Group').property('ADBE Opacity').setValueAtTime(Math.min(0.25,dur/2),100);
+            var opacity = layer.property('ADBE Transform Group').property('ADBE Opacity');
+            opacity.setValueAtTime(0,0);
+            opacity.setValueAtTime(dur,100);
+            try {
+                opacity.setInterpolationTypeAtKey(1,KeyframeInterpolationType.BEZIER,KeyframeInterpolationType.BEZIER);
+                opacity.setInterpolationTypeAtKey(2,KeyframeInterpolationType.BEZIER,KeyframeInterpolationType.BEZIER);
+            } catch(ignoreOpacityEase) {}
             message = 'SUCCESS: Created animated text layer “' + layer.name + '” in ' + comp.name + '.';
         } else if (cmd.action === 'shape') {
             layer = comp.layers.addShape(); layer.name = 'AI — Shape Layer';
