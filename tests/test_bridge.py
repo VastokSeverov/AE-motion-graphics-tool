@@ -1,4 +1,4 @@
-""""Integration tests for the loopback bridge; no After Effects installation required."""
+"""Integration tests for the loopback bridge; no After Effects installation required."""
 import importlib.util
 import json
 import pathlib
