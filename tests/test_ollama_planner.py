@@ -29,7 +29,7 @@ class OllamaPlannerTests(unittest.TestCase):
     def proposal(self, **overrides):
         data = {
             "action": "animated_text", "text": "Hello World", "prefix": "AI — ",
-            "duration": 1.2, "explanation": "Create animated text with the existing entrance."
+            "duration": 1.2, "color": "white", "explanation": "Create animated text with the entrance."
         }
         data.update(overrides)
         return data
@@ -41,6 +41,7 @@ class OllamaPlannerTests(unittest.TestCase):
         self.assertEqual(plan["action"], "animated_text")
         self.assertEqual(plan["text"], "Hello World")
         self.assertEqual(plan["duration"], 1.2)
+        self.assertEqual(plan["color"], "white")
         self.assertTrue(plan["requires_confirmation"])
         self.assertEqual(plan["planner"], "ollama")
         request = mock_urlopen.call_args.args[0]
@@ -59,6 +60,19 @@ class OllamaPlannerTests(unittest.TestCase):
         mock_urlopen.return_value = FakeResponse(self.proposal(duration=99))
         with self.assertRaises(planner.PlanningError):
             planner.plan_request("Animate this")
+
+
+    @patch.object(planner.urllib.request, "urlopen")
+    def test_accepts_supported_text_color(self, mock_urlopen):
+        mock_urlopen.return_value = FakeResponse(self.proposal(color="red"))
+        plan = planner.plan_request('Create red animated text saying Hello')
+        self.assertEqual(plan["color"], "red")
+
+    @patch.object(planner.urllib.request, "urlopen")
+    def test_rejects_unsupported_text_color(self, mock_urlopen):
+        mock_urlopen.return_value = FakeResponse(self.proposal(color="ultraviolet"))
+        with self.assertRaises(planner.PlanningError):
+            planner.plan_request("Create ultraviolet text")
 
     def test_rejects_empty_and_oversized_prompts_before_network(self):
         with patch.object(planner.urllib.request, "urlopen") as mock_urlopen:
