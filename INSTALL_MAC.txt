@@ -1,48 +1,58 @@
-VASTOCHNIY AE COPILOT — EXECUTION MVP (macOS)
+VASTOCHNIY AE COPILOT — MACOS INSTALLATION & VALIDATION
 
-WHAT THIS BUILD DOES
-- Browser UI sends commands to a local bridge.
-- The After Effects CEP panel receives them and calls After Effects' scripting engine.
-- Implemented actions: create animated text, create rounded rectangle shape, create a liquid-glass starter shape, rename selected layers.
-- This is a proof-of-execution MVP, not the complete AI feature set yet. No AI API key is used.
+SCOPE
+This is a CEP + ExtendScript prototype, not yet a fully verified production plugin. It has four explicit AE operations: animated text, rounded rectangle, a basic translucent "glass" shape, and prefixing selected layer names. It does not include AI prompt planning, reference-video reconstruction, Uzbek proofreading, background removal, or video downloading.
 
-IMPORTANT COMPATIBILITY NOTE
-This prototype uses Adobe's CEP panel + ExtendScript bridge. CEP availability and unsigned-extension loading depend on your installed After Effects/macOS configuration. If After Effects 2026 no longer loads CEP on your setup, we must port the panel to supported UXP APIs rather than claim this install path works.
+REQUIREMENTS
+- macOS and a compatible Adobe After Effects installation.
+- Python 3.
+- A copy of this repository.
 
-INSTALL
+INSTALL THE CEP EXTENSION
 1. Quit After Effects.
-2. Copy the folder `cep` contents into this folder (create it if needed):
-   ~/Library/Application Support/Adobe/CEP/extensions/com.vastochniy.aecopilot/
-   The final path should contain CSXS/manifest.xml, index.html, panel.js, and jsx/host.jsx.
-   Easiest: rename the extracted `cep` folder to `com.vastochniy.aecopilot` and copy it into the extensions folder.
-3. Enable unsigned CEP extensions for the CEP runtime used by your installation. In Terminal, you can try:
+2. In Finder, open Go > Go to Folder and enter:
+   ~/Library/Application Support/Adobe/CEP/extensions/
+3. Create the folder if necessary.
+4. Copy the repository's entire `cep` directory into that folder and rename the copied directory to:
+   com.vastochniy.aecopilot
+   The final path should include:
+   com.vastochniy.aecopilot/CSXS/manifest.xml
+   com.vastochniy.aecopilot/index.html
+   com.vastochniy.aecopilot/panel.js
+   com.vastochniy.aecopilot/jsx/host.jsx
+5. For development only, enable unsigned CEP extensions for the relevant runtime. The commands below are a workaround, not a compatibility guarantee:
    defaults write com.adobe.CSXS.11 PlayerDebugMode 1
    defaults write com.adobe.CSXS.12 PlayerDebugMode 1
-   Then restart After Effects. This setting is a developer-mode workaround; it may not be sufficient on every version.
-4. Start the local bridge in Terminal. From the extracted package folder, run:
+6. Restart After Effects. Look under Window > Extensions (Legacy) for "VASTOCHNIY AE Copilot". If it is absent, stop here: the extension has not loaded, and bridge testing cannot prove it works in AE.
+
+START THE LOCAL BRIDGE
+1. Open Terminal and change directory to the repository:
+   cd ~/Downloads/AE-motion-graphics-tool
+   (Use your actual clone location if different.)
+2. Run:
    python3 server/server.py
-   Keep Terminal open. The browser should open at http://127.0.0.1:8766.
-5. In After Effects, look under Window > Extensions (Legacy) for `VASTOCHNIY AE Copilot`.
-6. Keep the panel open. The browser should show “After Effects panel connected.”
-7. In After Effects, create or open a project and composition. From the browser, choose “Create animated text layer” and send `VASTOCHNIY`.
-8. Confirm a new layer appears in the active composition and inspect its Scale/Opacity keyframes. Test on a copy of a project first.
+3. Keep the Terminal window open. The browser should open at http://127.0.0.1:8766.
+4. Open the Copilot panel in After Effects and keep it visible. The browser should report that the CEP panel is polling the bridge. This confirms polling only, not successful command execution.
+
+TEST SAFELY
+1. Open a disposable After Effects project and create a composition. Do not test first on a valuable project.
+2. In the browser, send "Create animated text layer". Confirm a text layer appears and inspect its Scale and Opacity keyframes.
+3. Test the rounded rectangle and liquid-glass starter actions. Confirm layers appear and inspect their properties.
+4. Select two layers and test "Prefix selected layer names". Then test with no selected layers and confirm an error is reported.
+5. Use Undo after a successful action and verify the change is reverted.
+6. Check the browser execution log for a final succeeded/failed result. If a command times out, its outcome is uncertain: inspect the composition before trying it again.
+
+AUTOMATED BRIDGE TESTS
+From the repository root, run:
+   python3 -m unittest discover -s tests -v
+These tests do not require AE and do not verify the CEP runtime or ExtendScript behavior.
 
 TROUBLESHOOTING
-- If `Window > Extensions (Legacy)` does not show the panel, check the install path and CEP support. Do not assume the extension is running just because the browser opens.
-- If browser status says waiting for the panel, the local bridge is running but AE has not connected. Keep the AE panel open and click Check connection in the panel.
-- If macOS blocks a command file, run the Python command above from Terminal instead.
-- If AE reports an ERROR, copy the exact error text. The browser log displays execution results.
-- Stop the bridge with Ctrl+C in Terminal.
+- Panel missing from Extensions (Legacy): verify exact install path and whether your AE build supports CEP. Do not assume CEP support. If unavailable, the extension must be ported to Adobe's currently supported extension framework after checking the current AE SDK/API.
+- Browser says waiting for panel: server is running, but the CEP panel is not polling it.
+- Result says ERROR: capture the exact message and check the AE composition/panel.
+- Timeout: outcome is unknown; inspect the composition before retrying to avoid duplicate changes.
+- Stop the bridge with Ctrl+C.
 
-SAFETY
-The panel only binds to 127.0.0.1 and has no external API calls. Commands modify the active composition; use a duplicate project for initial testing. Each action is grouped for Undo where supported.
-
-NOT YET IMPLEMENTED
-- AI natural-language planning / OpenAI integration
-- Reference video reconstruction
-- Uzbek spellcheck
-- Background removal
-- Pinterest/Instagram/YouTube downloader
-- Automatic creation of an actual project folder named b-rolls
-- Advanced liquid-glass refraction or third-party plugin recreation
-These are follow-on features after live execution is confirmed.
+SECURITY
+The bridge binds to 127.0.0.1 and allows only four named actions. Keep it local; do not expose this development server to a network. Commands modify the active composition.
