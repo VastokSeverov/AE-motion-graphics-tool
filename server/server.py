@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 from collections import deque
 import json, threading, webbrowser, time, uuid, sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from planner import plan_request, PlanningError
+from ollama_planner import plan_request, PlanningError
 
 HOST, PORT = "127.0.0.1", 8766
 _lock = threading.RLock()
