@@ -6,6 +6,7 @@ import threading
 import urllib.error
 import urllib.request
 import unittest
+from unittest.mock import patch
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("vasto_server", ROOT / "server" / "server.py")
@@ -47,6 +48,25 @@ class BridgeTests(unittest.TestCase):
             finally:
                 err.close()
 
+
+    def test_natural_language_plan_requires_supported_intent(self):
+        valid_plan = {
+            "action": "animated_text", "text": "Hello", "prefix": "AI — ",
+            "duration": 1.2, "color": "red", "explanation": "Create animated text with the requested color.",
+            "requires_confirmation": True, "planner": "ollama", "model": "qwen3:14b"
+        }
+        with patch.object(bridge, "plan_request", return_value=valid_plan):
+            status, data = self.request("/api/plan", {"prompt": 'Create animated text saying "Hello" in 1.2 seconds'})
+        self.assertEqual(status, 200)
+        self.assertEqual(data["plan"]["action"], "animated_text")
+        self.assertEqual(data["plan"]["text"], "Hello")
+        self.assertEqual(data["plan"]["color"], "red")
+        self.assertTrue(data["plan"]["requires_confirmation"])
+        with patch.object(bridge, "plan_request", side_effect=bridge.PlanningError("unsupported")):
+            status, rejected = self.request("/api/plan", {"prompt": "Run arbitrary code"})
+        self.assertEqual(status, 400)
+        self.assertIn("error", rejected)
+
     def test_rejects_unknown_action(self):
         status, data = self.request("/api/command", {"action": "arbitrary_script"})
         self.assertEqual(status, 400)
@@ -58,6 +78,7 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(queued["status"], "queued")
         status, first = self.request("/api/next")
         self.assertEqual(first["command"]["id"], queued["id"])
+        self.assertEqual(first["command"]["color"], "white")
         status, second = self.request("/api/next")
         self.assertIsNone(second["command"])
         self.assertTrue(second["busy"])
@@ -70,6 +91,18 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(final["results"][-1]["status"], "succeeded")
         status, next_poll = self.request("/api/next")
         self.assertFalse(next_poll["busy"])
+
+
+    def test_command_rejects_unsupported_text_color(self):
+        status, data = self.request("/api/command", {"action": "animated_text", "color": "ultraviolet"})
+        self.assertEqual(status, 400)
+        self.assertIn("error", data)
+
+    def test_command_passes_requested_text_color(self):
+        status, queued = self.request("/api/command", {"action": "animated_text", "text": "Hello", "color": "red"})
+        self.assertEqual(status, 202)
+        _, delivered = self.request("/api/next")
+        self.assertEqual(delivered["command"]["color"], "red")
 
     def test_unknown_result_id_is_rejected(self):
         status, data = self.request("/api/result", {
