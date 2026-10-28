@@ -56,3 +56,19 @@ TROUBLESHOOTING
 
 SECURITY
 The bridge binds to 127.0.0.1 and allows only four named actions. Keep it local; do not expose this development server to a network. Commands modify the active composition.
+BACKGROUND REMOVER (STILL IMAGES)
+1. In Terminal, go to the repository folder:
+   cd ~/Downloads/AE-motion-graphics-tool
+2. Create a private Python environment and install the local model dependencies:
+   python3 -m venv .venv
+   source .venv/bin/activate
+   python -m pip install --upgrade pip
+   python -m pip install -r requirements-background.txt
+3. Start the bridge from that same activated environment:
+   python server/server.py
+   Keep this Terminal window open. On first use, rembg downloads its model; inference and image processing then run locally.
+4. Copy the updated cep folder into the installed extension folder, replacing the old files, and restart After Effects.
+5. Select exactly one saved still-image layer and click “Remove Image Background”. The original image file is never overwritten. After processing, the selected layer is switched to a transparent PNG and its existing transform/timing settings are retained. Undo restores the original source.
+6. This first version supports PNG, JPG/JPEG, WEBP, TIFF, and BMP still images. Video and image sequences are not supported yet.
+
+If the bridge is already running, stop it with Ctrl+C before starting it from .venv.
