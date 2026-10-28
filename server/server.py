@@ -1,190 +1,93 @@
 #!/usr/bin/env python3
-"""Local command bridge for VASTOCHNIY AE Copilot.
-Loopback-only; no external network calls or API keys.
-"""
+"""Local-only bridge for the VASTOCHNIY still-image background remover."""
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
-from pathlib import Path
 from urllib.parse import urlparse
-from collections import deque
-import json, threading, webbrowser, time, uuid, sys
+from pathlib import Path
+import json
+import sys
+import traceback
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from ollama_planner import plan_request, PlanningError
 from background_remover import remove_background, BackgroundRemovalError
 
 HOST, PORT = "127.0.0.1", 8766
-_lock = threading.RLock()
-_queue = deque()
-_commands = {}
-_results = deque(maxlen=100)
-_inflight_id = None
-_last_heartbeat = 0.0
-COMMAND_TIMEOUT_SECONDS = 45
-ALLOWED_ACTIONS = {"animated_text", "shape", "liquid_glass", "organize"}
-
-HTML = r'''<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>VASTOCHNIY AE Copilot</title>
-<style>
-:root{color-scheme:dark}body{font:15px system-ui;background:#101114;color:#f2f2f2;max-width:760px;margin:40px auto;padding:0 18px}h1{font-size:27px}p{color:#b8bac3;line-height:1.5}.card{background:#1b1c21;border:1px solid #34353c;border-radius:14px;padding:18px;margin:16px 0}label{display:block;margin:12px 0 6px;color:#d9d9df}input,select{box-sizing:border-box;width:100%;padding:12px;border-radius:8px;border:1px solid #444650;background:#101114;color:white;font:inherit}button{background:#f0f0f0;color:#111;border:0;border-radius:9px;padding:12px 17px;font-weight:700;cursor:pointer;margin-top:14px}button:disabled{opacity:.45}#status{white-space:pre-wrap;line-height:1.5;color:#d6e8ff}.small{font-size:12px;color:#9b9da7}.warn{color:#ffd18a}
-</style></head><body>
-<h1>VASTOCHNIY <span style="color:#a5a6ad">AE Copilot</span></h1>
-<p>Send explicit commands to the open After Effects composition. Keep the CEP panel open. A running browser server alone does not mean After Effects is connected.</p>
-<div class="card"><h3>Execute in active composition</h3>
-<label for="action">Action</label><select id="action"><option value="animated_text">Create animated text layer</option><option value="shape">Create rounded rectangle shape</option><option value="liquid_glass">Create liquid-glass starter shape</option><option value="organize">Prefix selected layer names</option></select>
-<label for="text">Text / layer name</label><input id="text" value="VASTOCHNIY" maxlength="180">
-<label for="duration">Animation duration (seconds)</label><input id="duration" type="number" min="0.2" max="5" step="0.1" value="0.8">
-<button id="send">Send command to After Effects</button><p class="small">Actions modify the active composition. Test in a disposable project first.</p></div>
-<div class="card"><h3>Connection and execution status</h3><div id="status">Checking local bridge…</div></div>
-<div class="card"><h3>Recent execution log</h3><div id="log" class="small">No commands yet.</div></div>
-<script>
-const statusEl=document.getElementById('status'),logEl=document.getElementById('log'),send=document.getElementById('send');let busy=false;
-async function refresh(){try{const r=await fetch('/api/status',{cache:'no-store'});const d=await r.json();const age=d.panelLastSeenSeconds;
-statusEl.textContent=d.panelConnected?'After Effects panel is polling the bridge. Last seen '+age+'s ago.':(d.serverRunning?'Bridge running; waiting for the After Effects CEP panel.':'Bridge unavailable.');
-if(d.inflight)statusEl.textContent+='\nExecuting command '+d.inflight.id+'…';
-if(d.results&&d.results.length)logEl.textContent=d.results.slice(-10).reverse().map(x=>new Date(x.time*1000).toLocaleTimeString()+' — ['+x.status+'] '+x.message).join('\n');
-}catch(e){statusEl.textContent='Cannot reach local server: '+e}}
-setInterval(refresh,1200);refresh();
-send.onclick=async()=>{if(busy)return;busy=true;send.disabled=true;try{
-const payload={action:document.getElementById('action').value,text:document.getElementById('text').value,duration:Number(document.getElementById('duration').value)};
-const r=await fetch('/api/command',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const d=await r.json();
-if(!r.ok)throw new Error(d.error||'Command rejected');statusEl.textContent='Queued command '+d.id+'. Waiting for After Effects to report the result…';await refresh();
-}catch(e){statusEl.textContent='Could not queue command: '+e.message;}finally{busy=false;send.disabled=false}}
-</script></body></html>'''
-
-def _expire_inflight(now=None):
-    """Mark timed-out execution as uncertain; never auto-retry side-effecting AE commands."""
-    global _inflight_id
-    now = time.time() if now is None else now
-    if _inflight_id:
-        item = _commands.get(_inflight_id)
-        if item and item["status"] == "executing" and now - item["started_at"] > COMMAND_TIMEOUT_SECONDS:
-            item["status"] = "timeout"
-            item["message"] = "Timed out waiting for After Effects. Outcome is unknown; inspect the composition before retrying."
-            item["finished_at"] = now
-            _results.append({"time": now, "status": "timeout", "message": item["message"], "id": item["id"]})
-            _inflight_id = None
+MAX_REQUEST_BYTES = 16384
 
 class Handler(BaseHTTPRequestHandler):
-    def log_message(self, *_): pass
+    def log_message(self, fmt, *args):
+        print("[bridge] " + (fmt % args), flush=True)
+
     def send_json(self, data, code=200):
         raw = json.dumps(data).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(raw)))
         self.send_header("Cache-Control", "no-store")
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Origin", "http://127.0.0.1:8766")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
         self.wfile.write(raw)
+
     def do_OPTIONS(self):
         self.send_response(204)
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Origin", "http://127.0.0.1:8766")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.send_header("Content-Length", "0")
         self.end_headers()
+
     def do_GET(self):
-        global _last_heartbeat, _inflight_id
-        path = urlparse(self.path).path
-        if path == "/":
-            raw = HTML.encode("utf-8")
-            self.send_response(200); self.send_header("Content-Type","text/html; charset=utf-8")
-            self.send_header("Content-Length",str(len(raw))); self.end_headers(); self.wfile.write(raw); return
-        if path == "/api/status":
-            with _lock:
-                _expire_inflight()
-                age = max(0, round(time.time()-_last_heartbeat, 1)) if _last_heartbeat else None
-                active = _commands.get(_inflight_id) if _inflight_id else None
-                results = list(_results)
-            self.send_json({"ok":True,"serverRunning":True,"panelConnected":age is not None and age < 5,
-                            "panelLastSeenSeconds":age,"inflight":({"id":active["id"],"action":active["action"]} if active else None),
-                            "results":results}); return
-        if path == "/api/next":
-            with _lock:
-                _last_heartbeat = time.time()
-                _expire_inflight()
-                # Deliver one command and retain it until the panel reports its final result.
-                if _inflight_id:
-                    item = _commands.get(_inflight_id)
-                    self.send_json({"command":None,"busy":True,"inflightId":_inflight_id}); return
-                while _queue:
-                    cid = _queue.popleft()
-                    item = _commands.get(cid)
-                    if item and item["status"] == "queued":
-                        item["status"] = "executing"; item["started_at"] = time.time()
-                        _inflight_id = cid
-                        self.send_json({"command":{"id":item["id"],"action":item["action"],"text":item["text"],"prefix":item["prefix"],"duration":item["duration"],"color":item["color"]}}); return
-            self.send_json({"command":None,"busy":False}); return
-        self.send_json({"error":"not found"},404)
+        if urlparse(self.path).path == "/api/status":
+            self.send_json({"ok": True, "bridgeReady": True, "feature": "background-removal"})
+        else:
+            self.send_json({"error": "Not found. Open the VASTOCHNIY panel inside After Effects."}, 404)
+
     def do_POST(self):
-        global _last_heartbeat, _inflight_id
-        path = urlparse(self.path).path
+        if urlparse(self.path).path != "/api/remove-background":
+            self.send_json({"error": "Not found. Only background removal is enabled."}, 404)
+            return
         try:
-            length = int(self.headers.get("Content-Length","0"))
-            if length < 0 or length > 16384: raise ValueError("request too large")
-            data = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
-            if not isinstance(data, dict): raise ValueError("JSON object required")
+            length = int(self.headers.get("Content-Length", "0"))
+            if length <= 0 or length > MAX_REQUEST_BYTES:
+                self.send_json({"error": "Invalid request size."}, 400)
+                return
+            data = json.loads(self.rfile.read(length).decode("utf-8"))
+            if not isinstance(data, dict):
+                raise ValueError("JSON object required")
         except Exception:
-            self.send_json({"error":"invalid JSON or request size"},400); return
-        if path == "/api/remove-background":
-            source = data.get("source_path")
-            if not isinstance(source, str) or not source.strip():
-                self.send_json({"error":"Select a still image layer in After Effects first."}, 400); return
-            try:
-                output = remove_background(source)
-            except BackgroundRemovalError as exc:
-                self.send_json({"error":str(exc)}, 400); return
-            except Exception:
-                self.send_json({"error":"Background removal failed unexpectedly. Check the bridge Terminal for details."}, 500); return
-            self.send_json({"ok":True,"output_path":str(output),"message":"Background removed locally."}); return
-        if path == "/api/plan":
-            try:
-                plan = plan_request(data.get("prompt", ""))
-            except PlanningError as exc:
-                self.send_json({"error": str(exc)}, 400); return
-            self.send_json({"ok": True, "plan": plan}); return
-        if path == "/api/command":
-            action = data.get("action")
-            if action not in ALLOWED_ACTIONS:
-                self.send_json({"error":"Unsupported action"},400); return
-            text = str(data.get("text","VASTOCHNIY"))[:180]
-            prefix = str(data.get("prefix","AI — "))[:40]
-            try: duration = max(.2,min(5,float(data.get("duration",.8))))
-            except (TypeError,ValueError): duration = .8
-            allowed_colors = {"white", "red", "green", "blue", "yellow", "orange", "purple", "pink", "black", "cyan"}
-            color = str(data.get("color", "white")).strip().lower()
-            if color not in allowed_colors:
-                self.send_json({"error":"Unsupported text color"},400); return
-            item={"id":uuid.uuid4().hex,"action":action,"text":text,"prefix":prefix,"duration":duration,"color":color,"status":"queued","created_at":time.time()}
-            with _lock:
-                _commands[item["id"]]=item; _queue.append(item["id"])
-            self.send_json({"ok":True,"id":item["id"],"status":"queued","message":"Command queued."},202); return
-        if path == "/api/result":
-            cid = str(data.get("id",""))
-            message = str(data.get("message","No message"))[:500]
-            explicit_status = data.get("status")
-            if explicit_status not in ("succeeded","failed"): explicit_status = "failed" if message.upper().startswith("ERROR") else "succeeded"
-            with _lock:
-                _last_heartbeat = time.time()
-                item = _commands.get(cid)
-                if not item:
-                    self.send_json({"error":"unknown command id"},404); return
-                if item["status"] in ("succeeded","failed","timeout"):
-                    self.send_json({"ok":True,"duplicate":True,"status":item["status"]}); return
-                if item["status"] != "executing" or _inflight_id != cid:
-                    self.send_json({"error":"command is not the active execution"},409); return
-                item["status"] = explicit_status; item["message"] = message; item["finished_at"] = time.time()
-                _results.append({"time":item["finished_at"],"status":explicit_status,"message":message,"id":cid})
-                _inflight_id = None
-            self.send_json({"ok":True,"status":explicit_status}); return
-        self.send_json({"error":"not found"},404)
+            self.send_json({"error": "Invalid JSON request."}, 400)
+            return
+        source = data.get("source_path")
+        if not isinstance(source, str) or not source.strip():
+            self.send_json({"error": "Select a still image layer in After Effects first."}, 400)
+            return
+        print("[background-remover] Processing: " + source, flush=True)
+        try:
+            output = remove_background(source)
+            print("[background-remover] Saved: " + str(output), flush=True)
+            self.send_json({"ok": True, "output_path": str(output), "message": "Background removed locally."})
+        except BackgroundRemovalError as exc:
+            print("[background-remover] " + str(exc), flush=True)
+            self.send_json({"error": str(exc)}, 400)
+        except Exception as exc:
+            traceback.print_exc()
+            self.send_json({"error": "Unexpected background-removal error: " + str(exc)}, 500)
 
 def main():
-    server = ThreadingHTTPServer((HOST,PORT),Handler)
-    print(f"VASTOCHNIY AE Copilot bridge running at http://{HOST}:{PORT}",flush=True)
-    print("Keep this Terminal window open. Press Ctrl+C to stop.",flush=True)
-    if "--open-browser" in sys.argv:
-        threading.Timer(1.0,lambda:webbrowser.open(f"http://{HOST}:{PORT}")).start()
-    try: server.serve_forever()
-    except KeyboardInterrupt: print("\nStopping bridge…")
-    finally: server.server_close()
-if __name__ == "__main__": main()
+    try:
+        server = ThreadingHTTPServer((HOST, PORT), Handler)
+    except OSError as exc:
+        print("Could not start bridge on " + HOST + ":" + str(PORT) + ". Stop any old bridge process first. " + str(exc), file=sys.stderr)
+        raise
+    print("VASTOCHNIY Background Remover running at http://" + HOST + ":" + str(PORT), flush=True)
+    print("Inference runs locally. Keep this Terminal window open; Ctrl+C stops the bridge.", flush=True)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nStopping bridge…", flush=True)
+    finally:
+        server.server_close()
+
+if __name__ == "__main__":
+    main()
