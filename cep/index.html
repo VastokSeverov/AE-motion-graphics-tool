@@ -1,55 +1,10 @@
 <!doctype html>
-<html>
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-:root{color-scheme:dark}
-*{box-sizing:border-box}
-body{margin:0;padding:14px;font:12px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#18191d;color:#f2f2f4}
-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
-.mark{width:34px;height:34px;display:grid;place-items:center;border-radius:9px;background:#e9b75c;color:#18191d;font-size:19px;font-weight:800}
-.brand{font-size:14px;font-weight:800;letter-spacing:1px}.sub{font-size:9px;color:#a4a5ad;letter-spacing:1.5px}
-#connection{margin-left:auto;font-size:10px;padding:4px 7px;border-radius:99px;background:#34353b;color:#ddd}
-#connection.good{background:#183a2a;color:#9de3b2}#connection.bad{background:#49341e;color:#ffd18a}
-h2{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#b7b8c0;margin:15px 0 8px}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.action{min-height:76px;text-align:left;padding:11px;border:1px solid #393a42;border-radius:10px;background:#23242a;color:#f4f4f6;cursor:pointer}
-.action:hover{border-color:#e9b75c;background:#2b2b30}.action:disabled{opacity:.5;cursor:wait}
-.glyph{display:block;color:#e9b75c;font-size:18px;margin-bottom:5px}.action strong{display:block;font-size:11px}.action small{display:block;color:#a8a9b2;font-size:10px;margin-top:2px}
-.field{display:block;color:#bfc0c8;font-size:10px;margin:9px 0 4px}
-input{width:100%;border:1px solid #3b3c44;background:#101115;color:#f2f2f4;padding:9px;border-radius:7px;font:12px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-#status{padding:10px;border-radius:8px;background:#24252b;border:1px solid #363740;min-height:42px;white-space:pre-wrap;overflow-wrap:anywhere}
-#status.good{color:#a9e8b8}#status.bad{color:#ffd18a}
-#log{font-size:10px;color:#aeb0ba;white-space:pre-wrap;max-height:92px;overflow:auto}
-.note{color:#888a95;font-size:10px;margin:10px 0 0}
-textarea{width:100%;min-height:78px;resize:vertical;border:1px solid #3b3c44;background:#101115;color:#f2f2f4;padding:9px;border-radius:7px;font:12px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-.plan-card{padding:10px;border:1px solid #46413a;border-radius:8px;background:#24231f;margin-top:8px;white-space:pre-wrap;overflow-wrap:anywhere}
-.plan-actions{display:flex;gap:8px;margin-top:8px}.plan-button{flex:1;border:1px solid #4a4b53;border-radius:7px;background:#e9b75c;color:#18191d;padding:9px;font-weight:700;cursor:pointer}.plan-button.secondary{background:#2a2b31;color:#eee}.plan-button:disabled{opacity:.45}
-</style>
-</head>
-<body>
-<header><div class="mark">V</div><div><div class="brand">VASTOCHNIY</div><div class="sub">AE COPILOT · EXECUTION</div></div><div id="connection">Connecting…</div></header>
-<h2>Describe what you want</h2>
-<textarea id="prompt" maxlength="1000" placeholder="Example: Create animated text saying Hello World in 1.2 seconds"></textarea>
-<div class="plan-actions"><button id="planRequest" class="plan-button">Plan request</button><button id="runPlan" class="plan-button secondary" disabled>Review &amp; Run</button></div>
-<div id="planPreview" class="plan-card" hidden>No plan yet.</div>
-<p class="note">The planner only maps requests to supported actions. Review the plan before it changes your composition.</p>
-<h2>Image tools</h2>
-<button id="removeBackground" class="action" style="width:100%;min-height:62px"><span class="glyph">◌</span><strong>Remove Image Background</strong><small>Select a still image layer; the original is preserved as a backup.</small></button>
-<h2>Quick actions</h2>
-<div class="grid">
-<button class="action" data-action="animated_text"><span class="glyph">T</span><strong>Animated Text</strong><small>Text + keyframes</small></button>
-<button class="action" data-action="shape"><span class="glyph">▢</span><strong>Rounded Rectangle</strong><small>Create a shape layer</small></button>
-<button class="action" data-action="liquid_glass"><span class="glyph">◇</span><strong>Glass Starter</strong><small>Translucent shape</small></button>
-<button class="action" data-action="organize"><span class="glyph">☷</span><strong>Prefix Layer Names</strong><small>Selected layers only</small></button>
-</div>
-<label class="field" for="text">Text for animated text</label><input id="text" value="VASTOCHNIY" maxlength="180">
-<label class="field" for="prefix">Layer-name prefix</label><input id="prefix" value="AI — " maxlength="40">
-<label class="field" for="duration">Text animation duration (seconds)</label><input id="duration" type="number" min="0.2" max="5" step="0.1" value="0.8">
-<label class="field" for="color">Text color</label><select id="color" style="width:100%;border:1px solid #3b3c44;background:#101115;color:#f2f2f4;padding:9px;border-radius:7px;font:12px -apple-system,BlinkMacSystemFont,&quot;Segoe UI&quot;,sans-serif"><option value="white">White</option><option value="red">Red</option><option value="green">Green</option><option value="blue">Blue</option><option value="yellow">Yellow</option><option value="orange">Orange</option><option value="purple">Purple</option><option value="pink">Pink</option><option value="black">Black</option><option value="cyan">Cyan</option></select>
-<h2>Execution status</h2><div id="status">Connecting to local bridge…</div>
-<h2>Recent activity</h2><div id="log">No commands yet.</div>
-<p class="note">Keep this panel open and run the local bridge. Test actions in a disposable project first.</p>
-<script src="panel.js"></script>
-</body></html>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;padding:16px;font:13px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#18191d;color:#f2f2f4}
+header{display:flex;align-items:center;gap:10px;margin-bottom:18px}.mark{width:36px;height:36px;display:grid;place-items:center;border-radius:10px;background:#e9b75c;color:#18191d;font-size:20px;font-weight:800}.brand{font-size:14px;font-weight:800;letter-spacing:1px}.sub{font-size:9px;color:#a4a5ad;letter-spacing:1.5px}#connection{margin-left:auto;font-size:10px;padding:4px 7px;border-radius:99px;background:#34353b;color:#ddd}#connection.good{background:#183a2a;color:#9de3b2}#connection.bad{background:#49341e;color:#ffd18a}
+.card{border:1px solid #393a42;border-radius:12px;padding:14px;background:#222329}.action{width:100%;margin-top:12px;min-height:54px;padding:12px;border:1px solid #e9b75c;border-radius:9px;background:#e9b75c;color:#18191d;font-weight:750;font-size:13px;cursor:pointer}.action:disabled{opacity:.5;cursor:wait}#status{white-space:pre-wrap;overflow-wrap:anywhere;padding:10px;border-radius:8px;background:#17181c;border:1px solid #363740;min-height:42px;margin-top:12px}#status.good{color:#a9e8b8}#status.bad{color:#ffd18a}.note{color:#9b9da7;font-size:10px;margin:10px 0 0}
+</style></head><body>
+<header><div class="mark">V</div><div><div class="brand">VASTOCHNIY</div><div class="sub">IMAGE BACKGROUND REMOVER</div></div><div id="connection">Connecting…</div></header>
+<div class="card"><strong>Remove image background</strong><p class="note">Select exactly one saved still-image layer in your active composition. Processing runs locally on your Mac. The original file is not overwritten.</p><button id="removeBackground" class="action">Remove Background</button><div id="status">Starting local bridge connection…</div><p class="note">First run can take a few minutes while the AI model downloads. Keep After Effects and the bridge Terminal open.</p></div>
+<script src="panel.js"></script></body></html>
