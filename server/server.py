@@ -9,6 +9,7 @@ from collections import deque
 import json, threading, webbrowser, time, uuid, sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from ollama_planner import plan_request, PlanningError
+from background_remover import remove_background, BackgroundRemovalError
 
 HOST, PORT = "127.0.0.1", 8766
 _lock = threading.RLock()
@@ -124,6 +125,17 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(data, dict): raise ValueError("JSON object required")
         except Exception:
             self.send_json({"error":"invalid JSON or request size"},400); return
+        if path == "/api/remove-background":
+            source = data.get("source_path")
+            if not isinstance(source, str) or not source.strip():
+                self.send_json({"error":"Select a still image layer in After Effects first."}, 400); return
+            try:
+                output = remove_background(source)
+            except BackgroundRemovalError as exc:
+                self.send_json({"error":str(exc)}, 400); return
+            except Exception:
+                self.send_json({"error":"Background removal failed unexpectedly. Check the bridge Terminal for details."}, 500); return
+            self.send_json({"ok":True,"output_path":str(output),"message":"Background removed locally."}); return
         if path == "/api/plan":
             try:
                 plan = plan_request(data.get("prompt", ""))

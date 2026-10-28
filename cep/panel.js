@@ -205,6 +205,53 @@
     button.addEventListener('click', function () { queueAction(button.getAttribute('data-action')); });
   });
 
+
+  // Still-image background removal runs in the local Python bridge, then swaps
+  // the selected footage source while preserving the layer's existing transforms.
+  var removeBgButton = document.getElementById('removeBackground');
+  if (removeBgButton) {
+    removeBgButton.addEventListener('click', function () {
+      if (busyCommand) return;
+      if (!window.__adobe_cep__ || !window.__adobe_cep__.evalScript) {
+        show('After Effects scripting is unavailable. Reopen the CEP panel.', false); return;
+      }
+      busyCommand = true;
+      setButtonsDisabled(true);
+      removeBgButton.disabled = true;
+      show('Checking selected image layer…', true);
+      window.__adobe_cep__.evalScript('Vasto.getSelectedImageInfo()', function (raw) {
+        var info;
+        try { info = JSON.parse(raw); } catch (e) { info = null; }
+        if (!info || info.error) {
+          busyCommand = false; setButtonsDisabled(false); removeBgButton.disabled = false;
+          show(info && info.error ? info.error : 'Could not read the selected layer.', false); return;
+        }
+        show('Removing background locally. The first run may download the model and take longer…', true);
+        fetch(base + '/api/remove-background', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ source_path: info.path })
+        }).then(function (response) {
+          return response.json().then(function (data) {
+            if (!response.ok) throw new Error(data.error || 'Background removal failed');
+            return data;
+          });
+        }).then(function (data) {
+          show('Importing transparent PNG into After Effects…', true);
+          var escapedPath = JSON.stringify(data.output_path);
+          window.__adobe_cep__.evalScript('Vasto.replaceSelectedImageSource(' + escapedPath + ',' + JSON.stringify(info.path) + ')', function (result) {
+            var message = result || 'After Effects returned no result.';
+            try { message = JSON.parse(result).message || message; } catch (e) {}
+            show(message, message.indexOf('ERROR:') !== 0);
+            busyCommand = false; setButtonsDisabled(false); removeBgButton.disabled = false;
+          });
+        }).catch(function (error) {
+          show('Background removal failed: ' + error.message, false);
+          busyCommand = false; setButtonsDisabled(false); removeBgButton.disabled = false;
+        });
+      });
+    });
+  }
+
   // The panel is the command client; the browser UI is no longer required.
   setInterval(function () {
     if (!busyCommand) refreshStatus();
