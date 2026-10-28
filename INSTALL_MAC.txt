@@ -1,74 +1,50 @@
-VASTOCHNIY AE COPILOT — MACOS INSTALLATION & VALIDATION
+# VASTOCHNIY AE Copilot — macOS setup
 
-SCOPE
-This is a CEP + ExtendScript prototype, not yet a fully verified production plugin. It has four explicit AE operations: animated text, rounded rectangle, a basic translucent "glass" shape, and prefixing selected layer names. It does not include AI prompt planning, reference-video reconstruction, Uzbek proofreading, background removal, or video downloading.
+This build has **one action only: Remove Background** for a selected local still image. It runs locally on your Mac; no API key is required. Video is not supported yet.
 
-REQUIREMENTS
-- macOS and a compatible Adobe After Effects installation.
-- Python 3.
-- A copy of this repository.
+## 1. Install the bridge dependencies
 
-INSTALL THE CEP EXTENSION
+From the repository root:
+
+```bash
+cd ~/Downloads/AE-motion-graphics-tool
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements-background.txt
+python server/server.py
+```
+
+Keep the Terminal window open. The bridge listens only on `127.0.0.1:8766`. If the port is already in use, stop the old bridge with Ctrl+C in its Terminal window before starting this one.
+
+The first background-removal run downloads the model and can take several minutes. The Terminal prints processing details and errors.
+
+## 2. Install the CEP panel
+
 1. Quit After Effects.
-2. In Finder, open Go > Go to Folder and enter:
-   ~/Library/Application Support/Adobe/CEP/extensions/
-3. Create the folder if necessary.
-4. Copy the repository's entire `cep` directory into that folder and rename the copied directory to:
-   com.vastochniy.aecopilot
-   The final path should include:
-   com.vastochniy.aecopilot/CSXS/manifest.xml
-   com.vastochniy.aecopilot/index.html
-   com.vastochniy.aecopilot/panel.js
-   com.vastochniy.aecopilot/jsx/host.jsx
-5. For development only, enable unsigned CEP extensions for the relevant runtime. The commands below are a workaround, not a compatibility guarantee:
-   defaults write com.adobe.CSXS.11 PlayerDebugMode 1
-   defaults write com.adobe.CSXS.12 PlayerDebugMode 1
-6. Restart After Effects. Look under Window > Extensions (Legacy) for "VASTOCHNIY AE Copilot". If it is absent, stop here: the extension has not loaded, and bridge testing cannot prove it works in AE.
+2. Copy the contents of the repository's `cep` directory into:
+   `~/Library/Application Support/Adobe/CEP/extensions/com.vastochniy.aecopilot/`
+3. Make sure `index.html`, `panel.js`, `CSXS/manifest.xml`, and `jsx/host.jsx` are inside that folder.
+4. Start After Effects and open **Window → Extensions (Legacy) → VASTOCHNIY AE Copilot**.
 
-START THE LOCAL BRIDGE
-1. Open Terminal and change directory to the repository:
-   cd ~/Downloads/AE-motion-graphics-tool
-   (Use your actual clone location if different.)
-2. Run:
-   python3 server/server.py
-3. Keep the Terminal window open. The browser should open at http://127.0.0.1:8766.
-4. Open the Copilot panel in After Effects and keep it visible. The browser should report that the CEP panel is polling the bridge. This confirms polling only, not successful command execution.
+If this extension has not been installed before, Adobe's unsigned CEP extension setting may be required for your After Effects version. Only enable it for development.
 
-TEST SAFELY
-1. Open a disposable After Effects project and create a composition. Do not test first on a valuable project.
-2. In the browser, send "Create animated text layer". Confirm a text layer appears and inspect its Scale and Opacity keyframes.
-3. Test the rounded rectangle and liquid-glass starter actions. Confirm layers appear and inspect their properties.
-4. Select two layers and test "Prefix selected layer names". Then test with no selected layers and confirm an error is reported.
-5. Use Undo after a successful action and verify the change is reverted.
-6. Check the browser execution log for a final succeeded/failed result. If a command times out, its outcome is uncertain: inspect the composition before trying it again.
+## 3. Use it
 
-AUTOMATED BRIDGE TESTS
-From the repository root, run:
-   python3 -m unittest discover -s tests -v
-These tests do not require AE and do not verify the CEP runtime or ExtendScript behavior.
+1. Open a composition.
+2. Select exactly one local still-image layer (PNG, JPG/JPEG, WEBP, TIFF, or BMP).
+3. Click **Remove Background**.
+4. Wait for the transparent PNG to be generated and imported.
 
-TROUBLESHOOTING
-- Panel missing from Extensions (Legacy): verify exact install path and whether your AE build supports CEP. Do not assume CEP support. If unavailable, the extension must be ported to Adobe's currently supported extension framework after checking the current AE SDK/API.
-- Browser says waiting for panel: server is running, but the CEP panel is not polling it.
-- Result says ERROR: capture the exact message and check the AE composition/panel.
-- Timeout: outcome is unknown; inspect the composition before retrying to avoid duplicate changes.
-- Stop the bridge with Ctrl+C.
+The original image file is never overwritten. The selected layer is switched to the transparent PNG; its layer transforms and timing should remain. Use Undo to restore the original source.
 
-SECURITY
-The bridge binds to 127.0.0.1 and allows only four named actions. Keep it local; do not expose this development server to a network. Commands modify the active composition.
-BACKGROUND REMOVER (STILL IMAGES)
-1. In Terminal, go to the repository folder:
-   cd ~/Downloads/AE-motion-graphics-tool
-2. Create a private Python environment and install the local model dependencies:
-   python3 -m venv .venv
-   source .venv/bin/activate
-   python -m pip install --upgrade pip
-   python -m pip install -r requirements-background.txt
-3. Start the bridge from that same activated environment:
-   python server/server.py
-   Keep this Terminal window open. On first use, rembg downloads its model; inference and image processing then run locally.
-4. Copy the updated cep folder into the installed extension folder, replacing the old files, and restart After Effects.
-5. Select exactly one saved still-image layer and click “Remove Image Background”. The original image file is never overwritten. After processing, the selected layer is switched to a transparent PNG and its existing transform/timing settings are retained. Undo restores the original source.
-6. This first version supports PNG, JPG/JPEG, WEBP, TIFF, and BMP still images. Video and image sequences are not supported yet.
+## Troubleshooting
 
-If the bridge is already running, stop it with Ctrl+C before starting it from .venv.
+- **Bridge offline:** activate `.venv` and run `python server/server.py`; check the Terminal for startup errors.
+- **Port already in use:** stop any old bridge process before restarting.
+- **Background remover not installed:** run `python -m pip install -r requirements-background.txt` with `.venv` activated.
+- **Model download/inference error:** inspect the bridge Terminal for the detailed error.
+- **After Effects scripting error:** restart After Effects and confirm the installed extension folder contains the updated `jsx/host.jsx`.
+- **Selected layer error:** only one saved still image can be processed. Footage must be online and stored locally.
+
+The bridge intentionally exposes only the background-removal endpoint. No other Copilot actions are available in this build.
