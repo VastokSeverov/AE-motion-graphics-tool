@@ -64,3 +64,43 @@ Vasto.executeCommand = function(raw) {
         app.endUndoGroup(); return JSON.stringify({message:message});
     } catch (e2) { try{app.endUndoGroup();}catch(ignore3){} return JSON.stringify({message:'ERROR: '+e2.toString()}); }
 };
+
+/* Return the selected still-image footage path to the local bridge. */
+Vasto.getSelectedImageInfo = function () {
+    try {
+        if (!app.project || !(app.project.activeItem instanceof CompItem)) throw new Error('Open a composition and select a still image layer first.');
+        var comp = app.project.activeItem;
+        if (!comp.selectedLayers || comp.selectedLayers.length !== 1) throw new Error('Select exactly one still image layer.');
+        var layer = comp.selectedLayers[0];
+        if (!(layer instanceof AVLayer) || !layer.source || !layer.source.mainSource || !layer.source.mainSource.file) throw new Error('Selected layer must be a saved, local still image—not text, a shape, video, or a generated solid.');
+        var file = layer.source.mainSource.file;
+        var ext = file.name.toLowerCase().split('.').pop();
+        if (!({png:1,jpg:1,jpeg:1,webp:1,tif:1,tiff:1,bmp:1}[ext])) throw new Error('Select a still image (PNG, JPG, WEBP, TIFF, or BMP). Video is not supported yet.');
+        if (!file.exists) throw new Error('The source image file is missing or offline.');
+        return JSON.stringify({path:file.fsName, name:layer.name});
+    } catch (e) { return JSON.stringify({error:e.toString()}); }
+};
+
+/* Replace only if the selected layer still references the source we processed. */
+Vasto.replaceSelectedImageSource = function (outputPath, expectedSourcePath) {
+    var undoStarted = false;
+    try {
+        if (!app.project || !(app.project.activeItem instanceof CompItem)) throw new Error('The active composition changed. Transparent PNG was saved, but no layer was changed.');
+        var comp = app.project.activeItem;
+        if (!comp.selectedLayers || comp.selectedLayers.length !== 1) throw new Error('Selection changed. Transparent PNG was saved, but no layer was changed.');
+        var layer = comp.selectedLayers[0];
+        if (!(layer instanceof AVLayer) || !layer.source || !layer.source.mainSource || !layer.source.mainSource.file) throw new Error('Selected layer is no longer the original image. Transparent PNG was saved, but no layer was changed.');
+        if (layer.source.mainSource.file.fsName !== expectedSourcePath) throw new Error('Selected image changed during processing. Transparent PNG was saved, but no layer was changed.');
+        var outputFile = new File(outputPath);
+        if (!outputFile.exists) throw new Error('Transparent PNG was not found at the output path.');
+        app.beginUndoGroup('VASTOCHNIY — Remove Image Background'); undoStarted = true;
+        var options = new ImportOptions(outputFile);
+        var footage = app.project.importFile(options);
+        layer.replaceSource(footage, false);
+        app.endUndoGroup(); undoStarted = false;
+        return JSON.stringify({message:'SUCCESS: Background removed. Selected layer now uses a transparent PNG; use Undo to restore the original source.'});
+    } catch (e) {
+        if (undoStarted) { try { app.endUndoGroup(); } catch (ignore) {} }
+        return JSON.stringify({message:'ERROR: ' + e.toString()});
+    }
+};
